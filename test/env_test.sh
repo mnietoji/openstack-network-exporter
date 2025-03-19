@@ -35,10 +35,8 @@ check_threshold() {
 			'BEGIN{d=(100*(v2-v1)/v1); \
 			if (d<0) d=d*(-1);printf("%2.2f\n", d)}')
 		if awk "BEGIN {exit !($diff >= $threshold)}"; then
-			if [ $retvalue == 0 ]; then
-				retvalue=1
-			fi
 			echo "ERROR: $field $value1 $value2 $diff"
+			retvalue=1
 		fi
 	else
 		echo "ERROR: $field $value1 $value2"
@@ -65,8 +63,8 @@ compare() {
 	grep -vw "$@" "$file2" > "$file2.filtered"
 
         # Check that same fields have been generated
-	awk '{if ($1 != "#") print $1}' "$file1".filtered > "$file1".fields
-	awk '{if ($1 != "#") print $1}' "$file2".filtered > "$file2".fields
+	sed -En 's/^([a-z0-9_]+).*/\1/p' "$file1.filtered" > "$file1.fields"
+	sed -En 's/^([a-z0-9_]+).*/\1/p' "$file2.filtered" > "$file2.fields"
 	if ! diff -u "$file1.fields" "$file2.fields" >/dev/null; then
 		echo "ERROR: Statistics set is not completed, Files have different fields"
 		return 1
@@ -88,7 +86,7 @@ compare() {
 			retvalue=1
 			break
 		fi
-		field_base=$(echo "$field1" | awk -F '{' '{print $1}')
+		field_base=$(echo "$field1" | sed -En 's/^([a-z0-9_]+).*/\1/p')
 		stat_thr=$(sed -En "s/^$field_base, .*, ([0-9]+),.*/\\1/p" "$STATS_CONF")
 		if [ -n "$stat_thr" ]; then
 			echo "Set threshold $stat_thr for $field1"

@@ -79,32 +79,32 @@ parse_port_stats() {
 		case "$stat" in
 		rx_q*_guest_notifications)
 			queue=$(echo "$stat" |
-			sed -En 's/rx_q([0-9]+)_guest_notifications/\1/p')
+				sed -En 's/rx_q([0-9]+)_guest_notifications/\1/p')
 			stat="ovs_interface_rx_guest_notifications"
 			;;
 		tx_q*_guest_notifications)
 			queue=$(echo "$stat" |
-			sed -En 's/tx_q([0-9]+)_guest_notifications/\1/p')
+				sed -En 's/tx_q([0-9]+)_guest_notifications/\1/p')
 			stat="ovs_interface_tx_guest_notifications"
 			;;
 		rx_q*_good_packets)
 			queue=$(echo "$stat" |
-			sed -En 's/rx_q([0-9]+)_good_packets/\1/p')
+				sed -En 's/rx_q([0-9]+)_good_packets/\1/p')
 			stat="ovs_interface_rx_good_packets"
 			;;
 		tx_q*_good_packets)
 			queue=$(echo "$stat" |
-			sed -En 's/tx_q([0-9]+)_good_packets/\1/p')
+				sed -En 's/tx_q([0-9]+)_good_packets/\1/p')
 			stat="ovs_interface_tx_good_packets"
 			;;
 		rx_q*_multicast_packets)
 			queue=$(echo "$stat" |
-			sed -En 's/rx_q([0-9]+)_multicast_packets/\1/p')
+				sed -En 's/rx_q([0-9]+)_multicast_packets/\1/p')
 			stat="ovs_interface_rx_multicast_packets"
 			;;
 		tx_q*_multicaset_packets)
 			queue=$(echo "$stat" |
-			sed -En 's/tx_q([0-9]+)_multicast_packets/\1/p')
+				sed -En 's/tx_q([0-9]+)_multicast_packets/\1/p')
 			stat="ovs_interface_tx_multicast_packets"
 			;;
 		ovs_tx_retries)
@@ -112,20 +112,16 @@ parse_port_stats() {
 			;;
 		rx_dropped)
 			stat="ovs_interface_rx_dropped"
-			rx_miss_errors=${port_stats["rx_missed_errors"]}
-
-			if [ "$rx_miss_errors" != "" ] &&
-			   [ "$rx_miss_errors" -gt 0 ]; then
-			   val=rx_miss_errors
+			rx_miss=${port_stats["rx_missed_errors"]}
+			if [ -n "$rx_miss" ] && [ "$rx_miss" -gt 0 ]; then
+			   val="$rx_miss"
 			fi
 			;;
 		tx_errors)
 			stat="ovs_interface_tx_errors"
-			ovs_tx_failure_drops=${port_stats["ovs_tx_failure_drops"]}
-
-			if [ "$ovs_tx_failure_drops" != "" ] &&
-			   [ "$ovs_tx_failure_drops" -gt 0 ]; then
-			   val=rx_miss_errors
+			tx_fdrops=${port_stats["ovs_tx_failure_drops"]}
+			if [ -n "$tx_drops" ] && [ "$tx_drops" -gt 0 ]; then
+			   val="$tx_drops"
 			fi
 			;;
 		rx_packets|rx_bytes|rx_errors|tx_packets|tx_bytes)
@@ -165,7 +161,7 @@ get_interface_stats() {
 		sed -En 's/.*\((.*)\).*/\1/p')
 		for port in $ports; do
 			type=$(ovs-vsctl get interface "$port" type)
-			if [ "$type" == '""' ]; then
+			if [ "$type" = '""' ]; then
 				type=system
 			fi
 			for field in "${!fields[@]}"; do
@@ -190,7 +186,7 @@ get_memory_stats() {
 		cat << EOF
 ovs_memory_${stat_name}_total $stat_val
 EOF
-   	done
+	done
 }
 
 get_pmd_rxq_stats() {
@@ -225,7 +221,7 @@ ovs_pmd_cpu_isolated{cpu="$core_id",numa="$numa_id"} ${isolated:-0}
 EOF
 			;;
 		esac
-   	done
+	done
 }
 
 get_pmd_perf_stats() {
@@ -269,8 +265,8 @@ EOF
 
 	ovs_pid=$(cat /run/openvswitch/ovs-vswitchd.pid)
         for status in /proc/"$ovs_pid"/task/*/status; do
-        	cpu=""
-        	numa=""
+		cpu=""
+		numa=""
                 while read -r line; do
                         case "$line" in
                         Name:*pmd*)
@@ -302,36 +298,36 @@ EOF
 }
 
 get_stats() {
-	for collector in $1; do
+	for collector in "$@"; do
 		case "$collector" in
-			bridge)
-				get_bridge_stats
-				;;
-			vswitch)
-				get_vswitch_stats
-				;;
-			coverage)
-				get_coverage_stats
-				;;
-			datapath)
-				get_datapath_stats
-				;;
-			interface)
-				get_interface_stats
-				;;
-			memory)
-				get_memory_stats
-				;;
-			pmd-rxq)
-				get_pmd_rxq_stats
-				;;
-			pmd-perf)
-				get_pmd_perf_stats
-				;;
-			*)
-				echo "unsupported collector" >&2
-				exit 1
-				;;
+		bridge)
+			get_bridge_stats
+			;;
+		vswitch)
+			get_vswitch_stats
+			;;
+		coverage)
+			get_coverage_stats
+			;;
+		datapath)
+			get_datapath_stats
+			;;
+		interface)
+			get_interface_stats
+			;;
+		memory)
+			get_memory_stats
+			;;
+		pmd-rxq)
+			get_pmd_rxq_stats
+			;;
+		pmd-perf)
+			get_pmd_perf_stats
+			;;
+		*)
+			echo "unsupported collector" >&2
+			exit 1
+			;;
 		esac
 	done
 }
@@ -397,5 +393,6 @@ done
 statscsv=$(dirname "$0")/stats.csv
 collectors=${collectors:-bridge coverage datapath interface memory pmd-perf pmd-rxq vswitch}
 metricsets=${metricsets:-base errors perf counters}
-get_stats "$collectors" | sort | filter "$statscsv" "$metricsets"
+# shellcheck disable=SC2086
+get_stats $collectors | sort | filter "$statscsv" "$metricsets"
 exit 0
